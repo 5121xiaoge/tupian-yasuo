@@ -41,7 +41,7 @@ const batch =
   pageHead(css) +
   `<section class="batch">
 <header class="header"><button class="backBtn" aria-label="返回"><svg></svg></button><h1>批量压缩</h1><span class="count">20 张</span><button class="settingsToggle"><svg></svg><span class="buttonLabel">设置</span></button><button class="addBtn"><svg></svg><span class="buttonLabel">添加图片</span></button></header>
-<div class="workspace"><aside id="batch-settings" class="controls"><h2>压缩设置</h2><label class="settingItem"><span>输出格式</span><select><option>JPEG</option><option>WebP</option><option>PNG</option></select></label><label class="settingItem"><span>质量 <strong>75%</strong></span><input type="range"></label><label class="toggleLabel"><input type="checkbox">限制最大宽度</label><label class="settingItem"><span>最大宽度 / px</span><input type="number" value="1920"></label></aside>
+<div class="workspace"><aside id="batch-settings" class="controls"><h2>压缩设置</h2><label class="settingItem"><span>输出格式</span><select><option>JPEG</option><option>WebP</option><option>PNG</option></select></label><label class="settingItem"><span>质量 <strong>75%</strong></span><input type="range"></label><label class="toggleLabel"><input type="checkbox">限制最大尺寸</label><label class="settingItem"><span>最大宽度 / px</span><input type="number" value="1920"></label></aside>
 <main class="content"><div class="summary" role="status"><span>已完成 20/20，失败 1 张</span><strong>123.45 MB → 61.72 MB<span class="saved">节省 50%</span></strong></div><progress class="progress" max="20" value="20"></progress><ul class="itemList">${Array.from(
     { length: 20 },
     (_, i) =>

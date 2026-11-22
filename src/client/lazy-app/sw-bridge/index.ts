@@ -95,13 +95,13 @@ export async function offliner(showSnack: SnackBarElement['showSnackbar']) {
   await updateReady(reg);
 
   // Ask the user if they want to update.
-  const result = await showSnack('Update available', {
-    actions: ['reload', 'dismiss'],
+  const result = await showSnack('有新版本可用', {
+    actions: ['刷新', '稍后'],
   });
 
   // Tell the waiting worker to activate, this will change the controller and cause a reload (see
   // 'controllerchange')
-  if (result === 'reload') skipWaiting();
+  if (result === '刷新') skipWaiting();
 }
 
 /**

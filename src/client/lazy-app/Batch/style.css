@@ -173,6 +173,59 @@
   height: 20px;
   accent-color: #c62d62;
 }
+.resizeGroup {
+  margin: -4px 0 4px 30px;
+}
+.radioGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-bottom: 12px;
+}
+.radioGroup label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.radioGroup input {
+  width: 18px;
+  height: 18px;
+  accent-color: #c62d62;
+}
+.hint {
+  margin: 8px 0 0;
+  color: #626973;
+  font-size: 12px;
+}
+.note {
+  color: #8a5a00;
+  display: block;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.textBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  color: #ae2447;
+  background: #fff;
+  border: 1px solid #e3b5c3;
+}
+.textBtn:hover {
+  background: #fbeff3;
+}
+.secondaryBtn {
+  flex: 1;
+  padding: 10px 12px;
+  min-width: 0;
+  text-align: center;
+  border: 1px solid #bd2458;
+  color: #bd2458;
+  background: #fff;
+  font-weight: 600;
+}
 .content {
   min-width: 0;
   padding: 16px;
@@ -389,7 +442,8 @@
   }
   .compressBtn,
   .downloadBtn,
-  .cancelBtn {
+  .cancelBtn,
+  .secondaryBtn {
     flex: 0 1 200px;
   }
 }

@@ -111,7 +111,7 @@ async function main() {
     await page.getByRole('heading', { name: '批量压缩' }).waitFor();
     await page.getByRole('button', { name: '压缩设置', exact: true }).click();
     await page.locator('#batch-settings select').selectOption('image/jpeg');
-    await page.getByRole('checkbox', { name: '限制最大宽度' }).check();
+    await page.getByRole('checkbox', { name: '限制最大尺寸' }).check();
     await page.getByRole('spinbutton').fill('32');
     await compressed(page);
     assert.equal(await page.locator('ul a[download]').count(), 4);

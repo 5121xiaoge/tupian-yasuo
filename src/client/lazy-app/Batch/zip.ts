@@ -5,17 +5,46 @@ const crcTable = new Uint32Array(256).map((_, n) => {
   return n >>> 0;
 });
 
+// Names Windows refuses to create, regardless of extension.
+const reservedNames = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+const maxBaseLength = 180;
+
 function uniqueName(name: string, used: Set<string>): string {
   const safe =
-    name.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/^\.+/, '') || 'image';
+    name
+      .replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')
+      .replace(/^\.+/, '')
+      .replace(/[. ]+$/, '') || 'image';
   const dot = safe.lastIndexOf('.');
-  const base = dot > 0 ? safe.slice(0, dot) : safe;
+  let base = dot > 0 ? safe.slice(0, dot) : safe;
   const ext = dot > 0 ? safe.slice(dot) : '';
-  let result = safe;
+  base = Array.from(base).slice(0, maxBaseLength).join('');
+  base = base.replace(/[. ]+$/, '') || 'image';
+  if (reservedNames.test(base)) base = `_${base}`;
+  let result = base + ext;
   let index = 2;
   while (used.has(result.toLowerCase())) result = `${base}-${index++}${ext}`;
   used.add(result.toLowerCase());
   return result;
+}
+
+/** MS-DOS time and date fields used by ZIP headers (local time, 2 s precision). */
+function dosDateTime(date: Date): [number, number] {
+  const valid = Number.isFinite(date.getTime());
+  const year = valid ? date.getFullYear() : 1980;
+  if (year < 1980) return [0, 33];
+  const clampedYear = Math.min(2107, year);
+  const time = valid
+    ? (date.getHours() << 11) |
+      (date.getMinutes() << 5) |
+      (date.getSeconds() >> 1)
+    : 0;
+  const day = valid
+    ? ((clampedYear - 1980) << 9) |
+      ((date.getMonth() + 1) << 5) |
+      date.getDate()
+    : 33;
+  return [time, day];
 }
 
 // Store already-compressed images without recompressing them; check ZIP32 limits explicitly.
@@ -23,11 +52,13 @@ export async function createZip(
   files: File[],
   signal: AbortSignal,
   onProgress: (completed: number) => void = () => {},
+  date: Date = new Date(),
 ): Promise<Blob> {
   if (files.length > 65535) throw new Error('ZIP 文件数量超过限制');
   const parts: BlobPart[] = [];
   const directory: Uint8Array[] = [];
   const used = new Set<string>();
+  const [dosTime, dosDate] = dosDateTime(date);
   let offset = 0;
   let directorySize = 0;
   for (const [index, file] of files.entries()) {
@@ -56,7 +87,8 @@ export async function createZip(
     view.setUint32(0, 0x04034b50, true);
     view.setUint16(4, 20, true);
     view.setUint16(6, 0x0800, true);
-    view.setUint16(12, 33, true);
+    view.setUint16(10, dosTime, true);
+    view.setUint16(12, dosDate, true);
     view.setUint32(14, crc, true);
     view.setUint32(18, file.size, true);
     view.setUint32(22, file.size, true);
@@ -68,7 +100,8 @@ export async function createZip(
     cv.setUint16(4, 20, true);
     cv.setUint16(6, 20, true);
     cv.setUint16(8, 0x0800, true);
-    cv.setUint16(14, 33, true);
+    cv.setUint16(12, dosTime, true);
+    cv.setUint16(14, dosDate, true);
     cv.setUint32(16, crc, true);
     cv.setUint32(20, file.size, true);
     cv.setUint32(24, file.size, true);

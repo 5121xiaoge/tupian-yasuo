@@ -1,4 +1,4 @@
-# 图片压缩优化验收记录 v1.3
+# 图片压缩优化验收记录 v1.5（含 v1.3 历史记录）
 
 日期：2026-11-01
 
@@ -110,3 +110,26 @@ Taste lint 为 0 FAIL/0 WARN，最终 inspect 为 0 FAIL/2 WARN：
 Impeccable 首页人工评分 15/20：可访问性、性能、主题、响应式、实现一致性各 3/4。
 评分是人工判断，不代表完整 WCAG 认证；引擎检测、实体手机及 Safari 未验证。
 旧依赖的 85 项安全问题仍未处理，本次未安装、升级或部署。
+
+## v1.5 修复与优化（2026-11-22）
+
+改动明细见 `CHANGELOG.md`。
+
+### 已验证
+- 在 Node 沙箱中执行了 `zip.ts` 与 `Batch` 核心逻辑（类型已去除）：原有 ZIP 断言，以及 DOS 时间、
+  Windows 保留名、结尾点/空格；批量的默认值、重试、取消、尺寸校验、MIME、保留原图、长边/宽度缩放、
+  设置持久化与损坏回退、4 路并发峰值、仅压缩未完成、单项重试、忙碌状态上报、URL 全部回收——全部通过。
+- `tests/regression.cjs` 已补充上述断言；Playwright 用例已同步新控件名称（“限制最大尺寸”）。
+
+### 未验证（交付前必须完成）
+- 本次修改环境无法执行 Node 子进程，**未运行 `npm ci`、`npm run build`（TypeScript 类型检查）、
+  `npm test` 和 Playwright 用例**。请依次运行：
+  `npm ci --no-audit --no-fund`、`npm run build`、`npm test`、`npm run test:e2e`。
+- 真实 iOS/Safari、Android 设备仍未测试；多路并行在低内存手机上的表现需实测。
+- 85 项依赖安全问题仍未处理（见上文），需单独升级 rollup/postcss/cssnano/serve/TypeScript 等并全面回归。
+
+### 暂未实施
+- 解码、缩放回退和 JPEG 去透明仍在主线程；后续可改为 OffscreenCanvas 移入 Worker。
+- ZIP 的 CRC 仍在主线程按 1 MB 分片计算。
+- 重新编码不保留 ICC 颜色配置，广色域照片可能略偏灰。
+- 批量组件仍随首页预加载。

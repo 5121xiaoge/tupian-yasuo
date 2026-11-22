@@ -99,9 +99,41 @@ async function main() {
     ),
     /4 GB/,
   );
+  const dated = await zipCtx.createZip(
+    [
+      new File(['a'], 'CON.png'),
+      new File(['b'], 'name. .webp'),
+      new File(['c'], 'trail. '),
+    ],
+    new AbortController().signal,
+    () => {},
+    new Date(2026, 10, 22, 13, 45, 30),
+  );
+  const datedBytes = new Uint8Array(await dated.arrayBuffer());
+  const datedView = new DataView(datedBytes.buffer);
+  const dosTime = (13 << 11) | (45 << 5) | 15;
+  const dosDate = ((2026 - 1980) << 9) | (11 << 5) | 22;
+  const datedNames = [];
+  let datedOffset = 0;
+  while (datedView.getUint32(datedOffset, true) === 0x04034b50) {
+    assert.equal(datedView.getUint16(datedOffset + 10, true), dosTime);
+    assert.equal(datedView.getUint16(datedOffset + 12, true), dosDate);
+    const size = datedView.getUint32(datedOffset + 18, true);
+    const nameLength = datedView.getUint16(datedOffset + 26, true);
+    datedNames.push(
+      new TextDecoder().decode(
+        datedBytes.slice(datedOffset + 30, datedOffset + 30 + nameLength),
+      ),
+    );
+    datedOffset += 30 + nameLength + size;
+  }
+  assert.equal(datedView.getUint32(datedOffset, true), 0x02014b50);
+  assert.equal(datedView.getUint16(datedOffset + 12, true), dosTime);
+  assert.equal(datedView.getUint16(datedOffset + 14, true), dosDate);
+  assert.deepEqual(datedNames, ['_CON.png', 'name.webp', 'trail']);
   groups++;
   console.log(
-    'PASS ZIP: UTF-8, duplicate names, payload, CRC, offsets, cancellation, ZIP32 limits',
+    'PASS ZIP: UTF-8, duplicate names, payload, CRC, offsets, cancellation, ZIP32 limits, DOS timestamps, Windows-safe names',
   );
 
   const source = read('src/client/lazy-app/Batch/index.tsx');
@@ -131,7 +163,8 @@ async function main() {
       this.props = props;
     }
     setState(next) {
-      this.state = { ...this.state, ...next };
+      if (typeof next === 'function') next = next(this.state, this.props);
+      if (next) this.state = { ...this.state, ...next };
     }
   }
   const encodedSettings = [];
@@ -142,7 +175,7 @@ async function main() {
       return new Uint8Array([1, 2]);
     },
   });
-  const batchCtx = context(batchCode, {
+  const batchBindings = {
     Component,
     URL: urls,
     WorkerBridge: class {},
@@ -155,7 +188,8 @@ async function main() {
     decodeImage: async () => ({ width: 300, height: 1 }),
     flattenAlpha: (data) => data,
     builtinResize: (data, sx, sy, sw, sh, width, height) => ({ width, height }),
-  });
+  };
+  const batchCtx = context(batchCode, batchBindings);
   const batch = new batchCtx.Batch({
     files: [files[0]],
     showSnack: () => Promise.resolve(''),
@@ -204,7 +238,7 @@ async function main() {
   await pending;
   assert.equal(batch.state.processing, false);
   assert.equal(batch.state.items[0].compressed, undefined);
-  const invalidSettings = { ...batch.state, useResize: true, maxWidth: -1 };
+  const invalidSettings = { ...batch.state, useResize: true, maxSize: -1 };
   batch.setState(invalidSettings);
   await batch.onCompressAll();
   assert.equal(batch.state.processing, false);
@@ -212,15 +246,129 @@ async function main() {
     batch,
     files[0],
     new AbortController().signal,
-    { ...batch.state, useResize: true, maxWidth: 1, format: 'image/webp' },
+    { ...batch.state, useResize: true, maxSize: 1, format: 'image/webp' },
   );
   assert.equal(encoded.type, 'image/webp');
   assert.equal(encoded.name, '图片.webp');
+  const tiny = new File(['x'], 'tiny.png', { type: 'image/png' });
+  const kept = await batchCtx.Batch.prototype.compressFile.call(
+    batch,
+    tiny,
+    new AbortController().signal,
+    { ...batch.state, useResize: false, keepOriginal: true },
+  );
+  assert.equal(kept, tiny, 'larger output must keep the original');
+  const notKept = await batchCtx.Batch.prototype.compressFile.call(
+    batch,
+    tiny,
+    new AbortController().signal,
+    { ...batch.state, useResize: false, keepOriginal: false },
+  );
+  assert.notEqual(notKept, tiny);
   batch.componentWillUnmount();
+  assert.equal(live.size, 0);
+  const longEdge = { useResize: true, resizeMode: 'longEdge', maxSize: 1000 };
+  assert.deepEqual(
+    { ...batchCtx.targetSize(3000, 8000, longEdge) },
+    { width: 375, height: 1000 },
+  );
+  assert.deepEqual(
+    { ...batchCtx.targetSize(3000, 8000, { ...longEdge, resizeMode: 'width' }) },
+    { width: 1000, height: 2667 },
+  );
+  assert.equal(batchCtx.targetSize(800, 600, longEdge), undefined);
+  assert.equal(
+    batchCtx.targetSize(3000, 8000, { ...longEdge, useResize: false }),
+    undefined,
+  );
+  const batchStore = new Map();
+  const batchStorage = {
+    getItem: (key) => (batchStore.has(key) ? batchStore.get(key) : null),
+    setItem: (key, value) => batchStore.set(key, String(value)),
+  };
+  batchStore.set(
+    'batchSettings',
+    JSON.stringify({
+      format: 'image/png',
+      quality: 500,
+      maxSize: 640,
+      useResize: true,
+      resizeMode: 'bogus',
+      keepOriginal: true,
+    }),
+  );
+  const persistedCtx = context(batchCode, {
+    ...batchBindings,
+    localStorage: batchStorage,
+    navigator: { hardwareConcurrency: 8 },
+  });
+  const persisted = new persistedCtx.Batch({
+    files: [],
+    showSnack: () => Promise.resolve(''),
+    onBack() {},
+  });
+  assert.equal(persisted.state.format, 'image/png');
+  assert.equal(persisted.state.quality, 90, 'invalid quality falls back');
+  assert.equal(persisted.state.maxSize, 640);
+  assert.equal(persisted.state.useResize, true);
+  assert.equal(persisted.state.resizeMode, 'longEdge');
+  assert.equal(persisted.state.keepOriginal, true);
+  persisted.updateSettings({ quality: 70 });
+  assert.equal(JSON.parse(batchStore.get('batchSettings')).quality, 70);
+  assert.equal(persisted.concurrency, 4);
+  persisted.setState({
+    useResize: false,
+    items: persisted.createItems(
+      Array.from({ length: 6 }, (_, i) => new File(['data'], `p${i}.png`)),
+    ),
+  });
+  let active = 0;
+  let peak = 0;
+  const lanes = new Set();
+  persisted.compressFile = async (file, _signal, _settings, bridge) => {
+    lanes.add(bridge);
+    active++;
+    peak = Math.max(peak, active);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    active--;
+    return new File(['z'], file.name);
+  };
+  await persisted.onCompressAll();
+  assert.equal(peak, 4);
+  assert.equal(lanes.size, 4);
+  assert.equal(
+    persisted.state.items.filter((item) => item.compressed).length,
+    6,
+  );
+  assert.equal(persisted.state.processing, false);
+  persisted.setState({
+    items: persisted.state.items.map((item, index) =>
+      index === 0 ? { ...item, compressed: undefined, error: 'x' } : item,
+    ),
+  });
+  let calls = 0;
+  persisted.compressFile = async (file) => {
+    calls++;
+    return new File(['z'], file.name);
+  };
+  await persisted.onCompressPending();
+  assert.equal(calls, 1, 'only unfinished items are compressed');
+  assert.equal(persisted.state.items[0].error, undefined);
+  calls = 0;
+  await persisted.retryItem(persisted.state.items[1].id);
+  assert.equal(calls, 1, 'retry compresses one item');
+  let busyReports = [];
+  persisted.props.onBusyChange = (busy) => busyReports.push(busy);
+  persisted.state.processing = true;
+  persisted.componentDidUpdate();
+  persisted.state.processing = false;
+  persisted.componentDidUpdate();
+  assert.deepEqual(busyReports, [true, false]);
+  persisted.componentWillUnmount();
   assert.equal(live.size, 0);
   groups++;
   console.log(
-    'PASS batch: WebP90 defaults without resize, retries, new files, cancellation, width validation, output MIME, URL cleanup',
+    'PASS batch: WebP90 defaults without resize, retries, new files, cancellation, size validation, output MIME, keep original, long-edge resize, saved settings, 4-lane concurrency, pending/retry scope, busy reporting, URL cleanup',
   );
 
   const compress = read('src/client/lazy-app/Compress/index.tsx');

@@ -1,6 +1,8 @@
-# [Squoosh]!
+# 图片压缩（tupian-yasuo）v1.5
 
-[Squoosh] is an image compression web app that reduces image sizes through numerous formats.
+基于 [Squoosh] 的本地图片压缩 Web 应用，支持单图对比和批量压缩，图片全程在浏览器内处理。
+
+版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 # Privacy
 
@@ -42,10 +44,15 @@ Set `SITE_ORIGIN` when building for a specific domain to emit its canonical URL.
 ## Batch Processing
 
 JPEG, WebP, and PNG use the same codecs as the single-image editor. JPEG outputs
-flatten transparency onto white. Batch tasks are sequential and can be cancelled.
+flatten transparency onto white. Batch tasks run on 1–4 parallel workers (half the
+CPU cores, at most 2 on devices with ≤ 4 GB memory) and can be cancelled. Size
+limits apply to the long edge or the width and use the editor's Lanczos3 resampler.
+"Keep original if larger", per-item retry, "compress unfinished" and saved batch
+settings are available. TIFF is only decodable in Safari.
 ZIP downloads use a preparation step followed by a normal download link, which
 avoids browser multiple-download restrictions. ZIP32 archives must remain below
-4 GB and contain at most 65535 files. Run `npm test` for focused regressions.
+4 GB and contain at most 65535 files. Run `npm test` for focused regressions and `npm run test:e2e` for the
+Playwright suites. `npm run serve` serves the production `build/` directory.
 
 `tests/layout.cjs` checks the source CSS with layout fixtures; it is not an
 application end-to-end test. `tests/browser.cjs` checks the built application at
@@ -57,3 +64,5 @@ screenshots and downloads, and optionally `BROWSER_EXECUTABLE`.
 transparency, invalid saved settings, reduced motion, and offline reload.
 See `OPTIMIZATION-AUDIT.md` for verification and unresolved dependency risks.
 This package has not passed dependency security audit and has not been deployed.
+Deploy with the headers in `serve.json` (or `src/copy/_headers` on Netlify);
+without COOP/COEP the multithreaded codecs fall back to single-threaded mode.

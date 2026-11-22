@@ -349,10 +349,10 @@ export default class Compress extends Component<Props, State> {
 
     const result = await this.props.showSnack('设置已复制到另一侧', {
       timeout: 5000,
-      actions: ['undo', 'dismiss'],
+      actions: ['撤销', '关闭'],
     });
 
-    if (result !== 'undo') return;
+    if (result !== '撤销') return;
 
     this.setState({
       sides: cleanSet(
@@ -384,10 +384,10 @@ export default class Compress extends Component<Props, State> {
       `${index === 0 ? '左' : '右'}侧设置已导入`,
       {
         timeout: 3000,
-        actions: ['undo', 'dismiss'],
+        actions: ['撤销', '关闭'],
       },
     );
-    if (result === 'undo') {
+    if (result === '撤销') {
       this.setState({
         sides: cleanSet(this.state.sides, `${index}.latestSettings`, previous),
       });

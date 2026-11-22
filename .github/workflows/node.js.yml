@@ -1,22 +1,47 @@
-name: Node.js CI
+name: CI
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-
     runs-on: ${{ matrix.os }}
-
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-
     steps:
-    - uses: actions/checkout@v2
-    - id: nvmrc
-      uses: browniebroke/read-nvmrc-action@v1
-    - uses: actions/setup-node@v1
-      with:
-        node-version: '${{ steps.nvmrc.outputs.node_version }}'
-    - run: npm ci
-    - run: npm run build
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: build
+          path: build
+          retention-days: 7
+
+  audit:
+    runs-on: ubuntu-latest
+    # Known findings remain in legacy build tooling; report them without blocking.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm audit --audit-level=high

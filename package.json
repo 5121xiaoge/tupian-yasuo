@@ -1,16 +1,26 @@
 {
   "private": true,
-  "name": "squoosh",
-  "version": "2.0.0",
+  "name": "tupian-yasuo",
+  "version": "1.5.0",
+  "description": "本地图片压缩 Web 应用（基于 Squoosh），图片不上传服务器",
   "license": "apache-2.0",
+  "engines": {
+    "node": ">=20.16.0"
+  },
   "scripts": {
     "build": "rollup -c && node lib/move-output.js",
     "debug": "node --inspect-brk node_modules/.bin/rollup -c",
     "dev": "node lib/dev.js",
     "watch": "rollup -cw",
     "test": "node tests/regression.cjs",
-    "serve": "serve --listen=5000 --config ../../../serve.json .tmp/build/static",
-    "prepare": "husky install"
+    "test:layout": "node tests/layout.cjs",
+    "test:browser": "node tests/browser.cjs",
+    "test:edge": "node tests/edge-browser.cjs",
+    "test:homepage": "node tests/homepage.cjs",
+    "test:e2e": "npm run test:browser && npm run test:edge && npm run test:homepage",
+    "serve": "serve --listen=tcp://127.0.0.1:5000 --config ../serve.json build",
+    "audit:deps": "npm audit --audit-level=high",
+    "prepare": "node lib/prepare.js"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^17.0.0",

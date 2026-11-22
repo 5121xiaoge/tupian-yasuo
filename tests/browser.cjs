@@ -99,7 +99,9 @@ async function main() {
         '90',
       );
       assert.equal(
-        await page.locator('#batch-settings input[type=checkbox]').isChecked(),
+        await page
+          .getByRole('checkbox', { name: '限制最大尺寸' })
+          .isChecked(),
         false,
       );
       await page.getByRole('button', { name: '开始压缩', exact: true }).click();

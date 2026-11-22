@@ -9,6 +9,19 @@ import {
 } from './index';
 import type WorkerBridge from '../worker-bridge';
 
+const formatLabels: Record<string, string> = {
+  'image/avif': 'AVIF',
+  'image/bmp': 'BMP',
+  'image/gif': 'GIF',
+  'image/jpeg': 'JPEG',
+  'image/jxl': 'JPEG XL',
+  'image/png': 'PNG',
+  'image/qoi': 'QOI',
+  'image/tiff': 'TIFF',
+  'image/webp': 'WebP',
+  'image/webp2': 'WebP2',
+};
+
 export async function decodeImage(
   signal: AbortSignal,
   blob: Blob,
@@ -16,7 +29,12 @@ export async function decodeImage(
 ): Promise<ImageData> {
   assertSignal(signal);
   const mimeType = await abortable(signal, sniffMimeType(blob));
+  if (mimeType === 'application/pdf')
+    throw new Error('不支持 PDF 文件，请导出为图片后再压缩');
   const canDecode = await abortable(signal, canDecodeImageType(mimeType));
+  // Chromium and Firefox have no TIFF decoder; fail early with a clear reason.
+  if (mimeType === 'image/tiff' && !canDecode)
+    throw new Error('当前浏览器不支持 TIFF，请先转换为 PNG 或 JPEG');
   try {
     if (!canDecode) {
       if (mimeType === 'image/avif')
@@ -33,7 +51,13 @@ export async function decodeImage(
     return await builtinDecode(signal, blob);
   } catch (err) {
     assertSignal(signal);
-    throw new Error('无法解码图片');
+    const label = formatLabels[mimeType];
+    const error = new Error(
+      label ? `无法解码 ${label} 图片，文件可能已损坏` : '无法识别的图片格式',
+    );
+    (error as any).cause = err;
+    console.warn('Image decode failed:', mimeType || 'unknown type', err);
+    throw error;
   }
 }
 

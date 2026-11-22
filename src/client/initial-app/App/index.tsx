@@ -47,6 +47,8 @@ export default class App extends Component<Props, State> {
   };
 
   snackbar?: SnackBarElement;
+  /** True while the batch view is compressing or packaging. */
+  private batchBusy = false;
 
   constructor() {
     super();
@@ -108,6 +110,10 @@ export default class App extends Component<Props, State> {
 
   private onFileDrop = ({ files }: FileDropEvent) => {
     if (!files || files.length === 0) return;
+    if (this.state.isEditorOpen && this.batchBusy) {
+      this.showSnack('正在处理图片，请先取消或等待完成后再拖入新图片');
+      return;
+    }
     const fileList: File[] = [];
     for (let i = 0; i < files.length; i++) {
       if (isImageFile(files[i])) {
@@ -132,6 +138,10 @@ export default class App extends Component<Props, State> {
   ): Promise<string> => {
     if (!this.snackbar) throw Error('Snackbar missing');
     return this.snackbar.showSnackbar(message, options);
+  };
+
+  private onBatchBusyChange = (busy: boolean) => {
+    this.batchBusy = busy;
   };
 
   private onPopState = () => {
@@ -172,7 +182,12 @@ export default class App extends Component<Props, State> {
             )
           ) : isEditorOpen ? (
             files.length > 1 && Batch ? (
-              <Batch files={files} showSnack={this.showSnack} onBack={back} />
+              <Batch
+                files={files}
+                showSnack={this.showSnack}
+                onBack={back}
+                onBusyChange={this.onBatchBusyChange}
+              />
             ) : Compress && files.length > 0 ? (
               <Compress
                 files={[files[0]]}
